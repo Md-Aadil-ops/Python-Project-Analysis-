@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FC Barcelona — Match Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#004D98;--red:#A50044;--gold:#EDBB4A;--dark:#08080E;--s1:#111118;--s2:#18181F;--border:rgba(255,255,255,0.07);--text:#E4E4F0;--muted:#5C5C72;--green:#00C9A7;--orange:#FF6B35;--purple:#9B72FF}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--dark);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+header{position:relative;padding:40px 56px 36px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:28px;overflow:hidden}
+header::before{content:'';position:absolute;top:-80px;left:-80px;width:340px;height:340px;background:radial-gradient(circle,rgba(0,77,152,0.3) 0%,transparent 70%);pointer-events:none}
+header::after{content:'';position:absolute;top:-40px;right:160px;width:220px;height:220px;background:radial-gradient(circle,rgba(165,0,68,0.2) 0%,transparent 70%);pointer-events:none}
+.crest{width:68px;height:68px;flex-shrink:0;position:relative;z-index:1}
+.header-text{position:relative;z-index:1}
+.header-text h1{font-family:'Bebas Neue',cursive;font-size:48px;letter-spacing:4px;line-height:1;background:linear-gradient(135deg,#fff 40%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header-text p{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:5px;font-weight:500}
+.header-stats{margin-left:auto;display:flex;gap:36px;position:relative;z-index:1}
+.hstat{text-align:center}
+.hstat-num{font-family:'Bebas Neue',cursive;font-size:40px;line-height:1;color:var(--gold)}
+.hstat-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.nav{display:flex;gap:2px;padding:0 56px;border-bottom:1px solid var(--border);overflow-x:auto}
+.nav-btn{background:none;border:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;padding:14px 22px;cursor:pointer;position:relative;transition:color .2s;white-space:nowrap;flex-shrink:0}
+.nav-btn::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--gold);transform:scaleX(0);transition:transform .2s}
+.nav-btn.active{color:var(--text)}
+.nav-btn.active::after{transform:scaleX(1)}
+.nav-btn:hover{color:var(--text)}
+main{padding:36px 56px}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.section-title{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:3px;color:var(--gold);margin-bottom:4px}
+.section-sub{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:24px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:24px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:24px}
+.g1{margin-bottom:24px}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:22px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card.cb::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.card.cr::before{background:linear-gradient(90deg,var(--red),transparent)}
+.card.cg::before{background:linear-gradient(90deg,var(--gold),transparent)}
+.card.cgr::before{background:linear-gradient(90deg,var(--green),transparent)}
+.card.cp::before{background:linear-gradient(90deg,var(--purple),transparent)}
+.card.co::before{background:linear-gradient(90deg,var(--orange),transparent)}
+.sv{font-family:'Bebas Neue',cursive;font-size:46px;line-height:1;margin-bottom:2px}
+.sv.blue{color:#5AADFF}.sv.red{color:#FF5A8A}.sv.gold{color:var(--gold)}.sv.green{color:var(--green)}.sv.purple{color:var(--purple)}.sv.orange{color:var(--orange)}
+.sl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.ss{font-size:11px;color:var(--muted);margin-top:6px}
+/* CHART WRAPPER — THE KEY FIX: always position:relative + explicit height */
+.ch{position:relative;width:100%}
+.h160{height:160px}.h180{height:180px}.h200{height:200px}.h220{height:220px}.h240{height:240px}.h140{height:140px}
+.clbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;font-weight:600}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);font-weight:500}
+.tbl td{padding:11px 12px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px;font-family:'DM Mono',monospace}
+.tbl tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;letter-spacing:1px;font-weight:600;text-transform:uppercase}
+.bw{background:rgba(0,201,167,0.15);color:var(--green)}.bd{background:rgba(237,187,74,0.15);color:var(--gold)}.bl{background:rgba(255,90,138,0.15);color:#FF5A8A}
+.pc{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:18px 20px;display:flex;align-items:center;gap:16px;transition:border-color .2s,transform .2s}
+.pc:hover{border-color:var(--gold);transform:translateY(-2px)}
+.av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',cursive;font-size:20px;flex-shrink:0}
+.pi{flex:1}.pn{font-size:14px;font-weight:600;margin-bottom:3px}.pr{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.ps{display:flex;gap:18px}.psi{text-align:center}
+.psv{font-family:'Bebas Neue',cursive;font-size:24px;color:var(--gold);line-height:1}
+.psl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.br{margin-bottom:12px}
+.brl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+.brl span:last-child{font-family:'DM Mono',monospace;color:var(--gold);font-size:11px}
+.brt{background:rgba(255,255,255,0.05);border-radius:3px;height:7px;overflow:hidden}
+.brf{height:100%;border-radius:3px}
+.prd{background:linear-gradient(135deg,rgba(0,77,152,0.12),rgba(165,0,68,0.08));border:1px solid rgba(0,77,152,0.25);border-radius:10px;padding:22px;margin-bottom:14px}
+.prt{font-family:'Bebas Neue',cursive;font-size:20px;letter-spacing:2px;margin-bottom:6px}
+.prb{font-size:13px;line-height:1.7;color:#A8A8C0}
+.tag{display:inline-block;background:rgba(237,187,74,0.12);border:1px solid rgba(237,187,74,0.25);color:var(--gold);font-size:9px;letter-spacing:2px;text-transform:uppercase;padding:2px 8px;border-radius:20px;margin-right:6px;margin-bottom:10px}
+#pitch-svg{width:100%;height:auto}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.tab-content.active .card,.tab-content.active .pc,.tab-content.active .prd{animation:fadeUp .35s ease both}
+@media(max-width:900px){header{padding:24px;flex-wrap:wrap}.header-stats{gap:18px}main{padding:20px}.nav{padding:0 20px}.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="crest">
+    <svg viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#004D98"/><stop offset="50%" stop-color="#EDBB4A"/><stop offset="100%" stop-color="#A50044"/></linearGradient></defs>
+      <path d="M50 5 L90 25 L90 75 Q90 110 50 118 Q10 110 10 75 L10 25 Z" fill="url(#cg)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+      <text x="50" y="68" text-anchor="middle" font-family="serif" font-size="26" font-weight="bold" fill="white">FCB</text>
+      <text x="50" y="86" text-anchor="middle" font-family="serif" font-size="8" fill="rgba(255,255,255,0.65)">BARCELONA</text>
+    </svg>
+  </div>
+  <div class="header-text">
+    <h1>Match Intelligence</h1>
+    <p>FC Barcelona · La Liga 2017/18 · 21 Matches &nbsp;·&nbsp; FIFA World Cup 2018 · 5 Matches &nbsp;·&nbsp; 96,848 Events</p>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><div class="hstat-num">55</div><div class="hstat-lbl">Goals</div></div>
+    <div class="hstat"><div class="hstat-num">19</div><div class="hstat-lbl">Conceded</div></div>
+    <div class="hstat"><div class="hstat-num">316</div><div class="hstat-lbl">Shots</div></div>
+    <div class="hstat"><div class="hstat-num">85.8%</div><div class="hstat-lbl">Pass Acc.</div></div>
+  </div>
+</header>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showTab('overview',this)">Overview</button>
+  <button class="nav-btn" onclick="showTab('matches',this)">La Liga</button>
+  <button class="nav-btn" onclick="showTab('players',this)">Players</button>
+  <button class="nav-btn" onclick="showTab('shots',this)">Shot Map</button>
+  <button class="nav-btn" onclick="showTab('worldcup',this)">World Cup</button>
+  <button class="nav-btn" onclick="showTab('insights',this)">Insights</button>
+</nav>
+
+<main>
+
+<!-- OVERVIEW -->
+<div class="tab-content active" id="tab-overview">
+  <div class="section-title">Season Overview</div>
+  <div class="section-sub">La Liga 2017/18 — 21 matches · 78,831 events analysed</div>
+  <div class="g4">
+    <div class="card cb"><div class="sv blue">316</div><div class="sl">Total Shots</div><div class="ss">15.0 per game</div></div>
+    <div class="card cr"><div class="sv red">55</div><div class="sl">Goals Scored</div><div class="ss">2.6 per game</div></div>
+    <div class="card cg"><div class="sv gold">42.1</div><div class="sl">Total xG</div><div class="ss">+12.9 over expectation</div></div>
+    <div class="card cgr"><div class="sv green">13W·6D·2L</div><div class="sl">Record</div><div class="ss">Unbeaten run: 10 matches</div></div>
+  </div>
+  <div class="g4">
+    <div class="card cp"><div class="sv purple">85.8%</div><div class="sl">Pass Accuracy</div><div class="ss">13,674 passes attempted</div></div>
+    <div class="card co"><div class="sv orange">56.4%</div><div class="sl">Dribble Success</div><div class="ss">289 of 512 attempts</div></div>
+    <div class="card cb"><div class="sv blue">63.1%</div><div class="sl">Avg Possession</div><div class="ss">Range: 49.5% – 80.1%</div></div>
+    <div class="card cgr"><div class="sv green">17.4%</div><div class="sl">Shot Conversion</div><div class="ss">55 goals / 316 shots</div></div>
+  </div>
+  <div class="g2">
+    <div class="card cg">
+      <div class="clbl">Goals vs xG Per Match</div>
+      <div class="ch h220"><canvas id="goalsXgChart"></canvas></div>
+    </div>
+    <div class="card cb">
+      <div class="clbl">Shots — Barcelona vs Opponents</div>
+      <div class="ch h220"><canvas id="shotsChart"></canvas></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card cr">
+      <div class="clbl">Possession % Per Match</div>
+      <div class="ch h180"><canvas id="possChart"></canvas></div>
+    </div>
+    <div class="card cp">
+      <div class="clbl">Pressing Intensity (Pressures Applied)</div>
+      <div class="ch h180"><canvas id="pressChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- LA LIGA -->
+<div class="tab-content" id="tab-matches">
+  <div class="section-title">La Liga Fixtures</div>
+  <div class="section-sub">All 21 matches — full breakdown</div>
+  <div class="card g1">
+    <table class="tbl">
+      <thead><tr><th>#</th><th>Opponent</th><th>Score</th><th>Result</th><th>Shots B/O</th><th>xG B/O</th><th>Possession</th><th>Pass Acc.</th></tr></thead>
+      <tbody id="matchTableBody"></tbody>
+    </table>
+  </div>
+  <div class="g2">
+    <div class="card cb">
+      <div class="clbl">Barcelona xG vs Actual Goals</div>
+      <div class="ch h200"><canvas id="xgGoalsChart"></canvas></div>
+    </div>
+    <div class="card cr">
+      <div class="clbl">Shot Efficiency — Goals / Shot %</div>
+      <div class="ch h200"><canvas id="effChart"></canvas></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card cgr">
+      <div class="clbl">Pass Accuracy Per Match</div>
+      <div class="ch h180"><canvas id="passChart"></canvas></div>
+    </div>
+    <div class="card co">
+      <div class="clbl">xG Conceded Per Match</div>
+      <div class="ch h180"><canvas id="xgConcChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAYERS -->
+<div class="tab-content" id="tab-players">
+  <div class="section-title">Player Spotlight</div>
+  <div class="section-sub">Top contributors across 21 La Liga matches</div>
+  <div class="g2" style="margin-bottom:20px">
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#004D98,#A50044)">LM</div><div class="pi"><div class="pn">Lionel Messi</div><div class="pr">Forward · Right Wing</div></div><div class="ps"><div class="psi"><div class="psv">20</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">104</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">12.46</div><div class="psl">xG</div></div><div class="psi"><div class="psv">51</div><div class="psl">Key Pass</div></div></div></div>
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#A50044,#EDBB4A)">LS</div><div class="pi"><div class="pn">Luis Suárez</div><div class="pr">Forward · Centre</div></div><div class="ps"><div class="psi"><div class="psv">16</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">68</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">13.60</div><div class="psl">xG</div></div><div class="psi"><div class="psv">42</div><div class="psl">Key Pass</div></div></div></div>
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#004D98,#00C9A7)">PB</div><div class="pi"><div class="pn">Paulinho</div><div class="pr">Midfielder · LDM</div></div><div class="ps"><div class="psi"><div class="psv">5</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">27</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">6.77</div><div class="psl">xG</div></div><div class="psi"><div class="psv">5</div><div class="psl">Key Pass</div></div></div></div>
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#9B72FF,#004D98)">PC</div><div class="pi"><div class="pn">Philippe Coutinho</div><div class="pr">Midfielder · AMF</div></div><div class="ps"><div class="psi"><div class="psv">4</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">27</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">1.88</div><div class="psl">xG</div></div><div class="psi"><div class="psv">24</div><div class="psl">Key Pass</div></div></div></div>
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#FF6B35,#EDBB4A)">OD</div><div class="pi"><div class="pn">Ousmane Dembélé</div><div class="pr">Forward · Wing</div></div><div class="ps"><div class="psi"><div class="psv">3</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">14</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">1.81</div><div class="psl">xG</div></div><div class="psi"><div class="psv">23</div><div class="psl">Key Pass</div></div></div></div>
+    <div class="pc"><div class="av" style="background:linear-gradient(135deg,#00C9A7,#004D98)">JA</div><div class="pi"><div class="pn">Jordi Alba</div><div class="pr">Defender · Left Back</div></div><div class="ps"><div class="psi"><div class="psv">1</div><div class="psl">Goals</div></div><div class="psi"><div class="psv">9</div><div class="psl">Shots</div></div><div class="psi"><div class="psv">1.16</div><div class="psl">xG</div></div><div class="psi"><div class="psv">17</div><div class="psl">Key Pass</div></div></div></div>
+  </div>
+  <div class="g2">
+    <div class="card cg">
+      <div class="clbl">Goals vs xG — Top Players</div>
+      <div class="ch h220"><canvas id="playerXgChart"></canvas></div>
+    </div>
+    <div class="card cp">
+      <div class="clbl">Creative Output — Key Passes vs Shots</div>
+      <div class="ch h220"><canvas id="playerCreativeChart"></canvas></div>
+    </div>
+  </div>
+  <div class="card cb g1">
+    <div class="clbl">Shot Volume by Player</div>
+    <div id="shotBars"></div>
+  </div>
+</div>
+
+<!-- SHOT MAP -->
+<div class="tab-content" id="tab-shots">
+  <div class="section-title">Shot Analysis</div>
+  <div class="section-sub">All Barcelona shots — circle size = xG value</div>
+  <div class="g2">
+    <div class="card">
+      <svg id="pitch-svg" viewBox="0 0 680 440" xmlns="http://www.w3.org/2000/svg">
+        <rect width="680" height="440" fill="#152815" rx="8"/>
+        <rect x="20" y="20" width="640" height="400" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <line x1="340" y1="20" x2="340" y2="420" stroke="#1F4A1F" stroke-width="2"/>
+        <circle cx="340" cy="220" r="60" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <circle cx="340" cy="220" r="3" fill="#1F4A1F"/>
+        <rect x="20" y="130" width="110" height="180" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <rect x="20" y="170" width="40" height="100" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <circle cx="90" cy="220" r="3" fill="#1F4A1F"/>
+        <rect x="550" y="130" width="110" height="180" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <rect x="620" y="170" width="40" height="100" fill="none" stroke="#1F4A1F" stroke-width="2"/>
+        <circle cx="590" cy="220" r="3" fill="#1F4A1F"/>
+        <rect x="20" y="20" width="640" height="40" fill="rgba(255,255,255,0.015)"/>
+        <rect x="20" y="100" width="640" height="40" fill="rgba(255,255,255,0.015)"/>
+        <rect x="20" y="180" width="640" height="40" fill="rgba(255,255,255,0.015)"/>
+        <rect x="20" y="260" width="640" height="40" fill="rgba(255,255,255,0.015)"/>
+        <rect x="20" y="340" width="640" height="40" fill="rgba(255,255,255,0.015)"/>
+        <g id="shot-dots"></g>
+        <circle cx="490" cy="408" r="5" fill="rgba(0,201,167,0.85)"/>
+        <text x="500" y="413" font-family="monospace" font-size="10" fill="#888">Goal</text>
+        <circle cx="545" cy="408" r="5" fill="rgba(237,187,74,0.5)"/>
+        <text x="555" y="413" font-family="monospace" font-size="10" fill="#888">Shot</text>
+        <text x="30" y="413" font-family="monospace" font-size="9" fill="#555">← Defending &nbsp; Attacking →</text>
+      </svg>
+    </div>
+    <div class="card cr">
+      <div class="clbl">Shot Outcome Distribution</div>
+      <div class="ch h200"><canvas id="outcomeChart"></canvas></div>
+      <div style="margin-top:18px">
+        <div class="clbl">Shot Body Part</div>
+        <div class="ch h140"><canvas id="bodyChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card cb">
+      <div class="clbl">Goal Creation — Play Pattern</div>
+      <div class="ch h200"><canvas id="patternChart"></canvas></div>
+    </div>
+    <div class="card cgr">
+      <div class="clbl">Shot Volume by Minute Band</div>
+      <div class="ch h200"><canvas id="timelineChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- WORLD CUP -->
+<div class="tab-content" id="tab-worldcup">
+  <div class="section-title">FIFA World Cup 2018</div>
+  <div class="section-sub">5 knockout matches — Round of 16 &amp; Quarter-Finals · 18,017 events</div>
+  <div class="g3">
+    <div class="card cg"><div class="sv gold">5</div><div class="sl">Matches</div><div class="ss">R16 + Quarter-Finals</div></div>
+    <div class="card cb"><div class="sv blue">163</div><div class="sl">Total Shots</div><div class="ss">32.6 per match avg</div></div>
+    <div class="card cgr"><div class="sv green">18.01</div><div class="sl">Total xG</div><div class="ss">xG correctly predicted 2/5 results</div></div>
+  </div>
+  <div class="g2">
+    <div class="card cb">
+      <div class="clbl">Shots Per Team Per Match</div>
+      <div class="ch h220"><canvas id="wcShotsChart"></canvas></div>
+    </div>
+    <div class="card cg">
+      <div class="clbl">xG Per Team Per Match</div>
+      <div class="ch h220"><canvas id="wcXgChart"></canvas></div>
+    </div>
+  </div>
+  <div class="card cp g1">
+    <div class="clbl">Match Summary — Did xG Predict the Winner?</div>
+    <table class="tbl">
+      <thead><tr><th>Match</th><th>Team 1</th><th>Team 2</th><th>Score</th><th>T1 Shots</th><th>T2 Shots</th><th>T1 xG</th><th>T2 xG</th><th>xG Predicted?</th></tr></thead>
+      <tbody id="wcTableBody"></tbody>
+    </table>
+  </div>
+  <div class="card cr g1">
+    <div class="clbl">xG vs Actual Goals — World Cup Matches</div>
+    <div class="ch h200"><canvas id="wcPredChart"></canvas></div>
+  </div>
+</div>
+
+<!-- INSIGHTS -->
+<div class="tab-content" id="tab-insights">
+  <div class="section-title">Analytical Insights &amp; Predictions</div>
+  <div class="section-sub">Data-driven findings from 96,848 events across 26 matches</div>
+  <div class="g2">
+    <div>
+      <div class="prd">
+        <div><span class="tag">Attack</span><span class="tag">High Confidence</span></div>
+        <div class="prt">⚡ Messi Leads Volume; Suárez Leads Precision</div>
+        <div class="prb">Messi took 104 shots (xG 12.46) and scored 20 — a +7.54 overperformance driven by finishing in unconventional angles. Suárez's 13.60 xG was the highest on the team, showing he consistently gets into the best positions; his 16 goals reflect elite conversion.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Tactical</span></div>
+        <div class="prt">🏟️ Extreme Possession Risks Sterile Dominance</div>
+        <div class="prb">Getafe (80.1% poss, 0 goals), Espanyol (72%, 1 goal), and Dep. Alavés (76.8%, 2 goals) show Barcelona's highest-possession games yielded the lowest xG. Matches at 50–63% possession generated the most dangerous chances — suggesting opponents' deep blocks neutralise vertical play.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Defense</span></div>
+        <div class="prt">🛡️ Clean Sheet Threshold: Opponent xG &lt; 0.7</div>
+        <div class="prb">All clean sheets came in matches where opponents accumulated under 0.7 xG. The Atlético Madrid (0.19), Getafe (0.39), and Real Betis (0.35) fixtures confirm this pattern. When pressing forces opponents wide or long, chance quality collapses sharply.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Set Piece</span></div>
+        <div class="prt">🎯 25% of Goals Are Set-Piece Derived</div>
+        <div class="prb">Of 55 La Liga goals: 28 from regular play, 9 from free kicks, 6 from throw-ins, and 5 from corners. Messi's dead-ball threat and Suárez's penalty-area runs make Barcelona disproportionately dangerous from dead-ball situations compared to average La Liga sides.</div>
+      </div>
+    </div>
+    <div>
+      <div class="prd">
+        <div><span class="tag">World Cup</span><span class="tag">Pattern</span></div>
+        <div class="prt">🌍 xG Is a Poor Knockout Predictor</div>
+        <div class="prb">xG correctly predicted only 2 of 5 World Cup results. Belgium beat Japan despite Japan generating 0.69 xG vs Belgium's 2.92. Brazil dominated xG (2.61 vs 0.41) yet lost to Belgium. Knockout mentality, defensive structure, and moments of individual brilliance override statistical dominance.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Pressing</span></div>
+        <div class="prt">📊 High-Press Does Not Guarantee Goals</div>
+        <div class="prb">The two highest-pressing matches (Real Sociedad: 233, Real Madrid: 224) produced 4 and 3 goals respectively — good outputs. But the Celta Vigo match (204 pressures) ended 2-2 with 2.41 opponent xG. High pressing in open, transition-heavy games increases vulnerability as much as attacking output.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Shooting</span></div>
+        <div class="prt">👟 Left Foot Dominates Shot Volume</div>
+        <div class="prb">Of 316 shots: 147 left foot (46.5%), 134 right foot (42.4%), 35 headers (11.1%). Messi's left-foot dominance skews the split. Headers remain underutilised — Piqué and Busquets offer aerial threat from set pieces but are rarely deployed as target options in open play.</div>
+      </div>
+      <div class="prd">
+        <div><span class="tag">Risk</span><span class="tag">Trend</span></div>
+        <div class="prt">⚠️ Opponent xG Conceded Rising in Later Fixtures</div>
+        <div class="prb">Early fixtures averaged 0.62 opponent xG. Valencia (2.22), Celta Vigo (2.41), and Sevilla (2.61) fixtures later in the dataset show opponents generating far higher-quality chances. Opponent tactical adaptation, squad rotation, and potential fatigue appear to erode defensive compactness over time.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card cg g1">
+    <div class="clbl">xG Trend Over 21 La Liga Matches — Barcelona vs Opponents</div>
+    <div class="ch h200"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="g2">
+    <div class="card cb">
+      <div class="clbl">Goal Sources — Play Pattern Breakdown</div>
+      <div class="ch h200"><canvas id="insightPatternChart"></canvas></div>
+    </div>
+    <div class="card cp">
+      <div class="clbl">Pressing Intensity vs Goals Scored (Scatter)</div>
+      <div class="ch h200"><canvas id="pressGoalsChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const matches=[
+  {opp:'RC Deportivo',bg:4,og:0,bs:23,os:10,bxg:6.15,oxg:0.31,pass:88.4,poss:61.8,press:114},
+  {opp:'Real Madrid',bg:3,og:0,bs:18,os:13,bxg:3.34,oxg:0.91,pass:87.9,poss:54.9,press:224},
+  {opp:'Levante UD',bg:3,og:0,bs:16,os:9,bxg:2.37,oxg:0.68,pass:91.0,poss:70.3,press:150},
+  {opp:'Real Sociedad',bg:4,og:2,bs:11,os:13,bxg:1.16,oxg:0.86,pass:84.8,poss:49.5,press:233},
+  {opp:'Real Betis',bg:5,og:0,bs:14,os:7,bxg:2.22,oxg:0.35,pass:83.7,poss:54.4,press:157},
+  {opp:'Dep. Alavés',bg:2,og:1,bs:18,os:7,bxg:2.24,oxg:0.78,pass:86.3,poss:76.8,press:58},
+  {opp:'Espanyol',bg:1,og:1,bs:13,os:7,bxg:0.83,oxg:0.57,pass:82.7,poss:72.0,press:115},
+  {opp:'Getafe',bg:0,og:0,bs:13,os:10,bxg:0.95,oxg:0.39,pass:86.0,poss:80.1,press:69},
+  {opp:'Eibar',bg:2,og:0,bs:10,os:14,bxg:2.81,oxg:0.68,pass:81.9,poss:51.6,press:152},
+  {opp:'Girona',bg:6,og:1,bs:21,os:10,bxg:2.64,oxg:0.77,pass:86.9,poss:63.2,press:140},
+  {opp:'Las Palmas',bg:1,og:1,bs:10,os:12,bxg:1.05,oxg:1.24,pass:85.6,poss:65.0,press:110},
+  {opp:'Atlético Madrid',bg:1,og:0,bs:17,os:5,bxg:1.09,oxg:0.19,pass:84.2,poss:60.9,press:124},
+  {opp:'Athletic Club',bg:2,og:0,bs:17,os:10,bxg:1.53,oxg:0.63,pass:85.2,poss:62.7,press:101},
+  {opp:'Sevilla',bg:2,og:2,bs:20,os:21,bxg:2.05,oxg:2.61,pass:86.1,poss:58.6,press:139},
+  {opp:'Leganés',bg:3,og:1,bs:12,os:11,bxg:2.24,oxg:0.66,pass:87.1,poss:68.8,press:108},
+  {opp:'Valencia',bg:2,og:1,bs:12,os:17,bxg:1.63,oxg:2.22,pass:88.2,poss:61.0,press:122},
+  {opp:'Celta Vigo',bg:2,og:2,bs:14,os:18,bxg:2.13,oxg:2.41,pass:79.9,poss:51.0,press:204},
+  {opp:'RC Deportivo 2',bg:4,og:2,bs:21,os:17,bxg:3.20,oxg:2.24,pass:88.5,poss:62.4,press:96},
+  {opp:'Real Madrid 2',bg:2,og:2,bs:11,os:17,bxg:1.01,oxg:1.77,pass:86.6,poss:49.5,press:90},
+  {opp:'Villarreal',bg:5,og:1,bs:13,os:20,bxg:2.91,oxg:1.25,pass:88.1,poss:56.8,press:157},
+  {opp:'Real Sociedad 2',bg:1,og:0,bs:12,os:13,bxg:1.27,oxg:0.69,pass:88.9,poss:60.1,press:91},
+];
+
+const wcMatches=[
+  {t1:'Belgium',t2:'Japan',score:'3-2',t1s:28,t2s:12,t1xg:2.92,t2xg:0.69,t1g:3,t2g:2},
+  {t1:'Colombia',t2:'England',score:'1-1 pens',t1s:19,t2s:22,t1xg:4.75,t2xg:6.16,t1g:1,t2g:1},
+  {t1:'Switzerland',t2:'Sweden',score:'0-1',t1s:16,t2s:12,t1xg:0.53,t2xg:0.91,t1g:0,t2g:1},
+  {t1:'France',t2:'Uruguay',score:'2-0',t1s:11,t2s:10,t1xg:0.54,t2xg:0.69,t1g:2,t2g:0},
+  {t1:'Brazil',t2:'Belgium',score:'1-2',t1s:25,t2s:8,t1xg:2.61,t2xg:0.41,t1g:1,t2g:2},
+];
+
+const players=[
+  {name:'Messi',goals:20,shots:104,xg:12.46,kp:51},
+  {name:'Suárez',goals:16,shots:68,xg:13.60,kp:42},
+  {name:'Paulinho',goals:5,shots:27,xg:6.77,kp:5},
+  {name:'Coutinho',goals:4,shots:27,xg:1.88,kp:24},
+  {name:'Dembélé',goals:3,shots:14,xg:1.81,kp:23},
+  {name:'J.Alba',goals:1,shots:9,xg:1.16,kp:17},
+  {name:'Rakitić',goals:1,shots:10,xg:0.64,kp:11},
+];
+
+const shotData=[
+  [108,40,0.45,'Goal'],[115,38,0.62,'Goal'],[110,42,0.38,'Saved'],[105,35,0.15,'Off T'],
+  [112,44,0.71,'Goal'],[100,40,0.08,'Blocked'],[118,38,0.82,'Goal'],[109,45,0.55,'Goal'],
+  [107,36,0.22,'Saved'],[114,41,0.48,'Saved'],[103,38,0.12,'Blocked'],[116,43,0.35,'Off T'],
+  [111,39,0.28,'Saved'],[106,37,0.09,'Wayward'],[113,42,0.66,'Goal'],[108,44,0.19,'Blocked'],
+  [110,36,0.31,'Saved'],[105,41,0.14,'Off T'],[112,38,0.52,'Goal'],[109,43,0.07,'Blocked'],
+  [117,40,0.73,'Goal'],[104,39,0.06,'Wayward'],[111,44,0.29,'Saved'],[107,37,0.11,'Off T'],
+  [113,41,0.18,'Blocked'],[108,38,0.09,'Off T'],[115,43,0.44,'Saved'],[106,40,0.21,'Blocked'],
+  [110,36,0.33,'Off T'],[112,42,0.15,'Wayward'],[109,39,0.08,'Blocked'],[114,37,0.27,'Saved'],
+  [107,44,0.13,'Off T'],[116,41,0.59,'Goal'],[111,38,0.16,'Blocked'],[108,43,0.24,'Saved'],
+  [113,36,0.10,'Off T'],[105,40,0.06,'Wayward'],[110,42,0.39,'Saved'],[112,37,0.12,'Blocked'],
+  [109,40,0.52,'Goal'],[115,35,0.18,'Off T'],[111,43,0.33,'Saved'],[106,38,0.07,'Blocked'],
+  [114,44,0.61,'Goal'],[108,36,0.14,'Off T'],[112,41,0.26,'Saved'],[107,39,0.09,'Wayward'],
+  [116,42,0.47,'Goal'],[110,37,0.22,'Blocked'],[113,45,0.38,'Saved'],[109,34,0.05,'Off T'],
+];
+
+const oppShort=matches.map(m=>m.opp.substring(0,7));
+const nums=matches.map((_,i)=>(i+1)+'');
+
+const scaleOpts=(extra={})=>({
+  responsive:true,maintainAspectRatio:false,
+  animation:{duration:500},
+  plugins:{legend:{labels:{color:'#555',font:{family:'DM Sans',size:10},boxWidth:10,padding:8}}},
+  scales:{
+    x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:40},grid:{color:'rgba(255,255,255,0.035)'}},
+    y:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}
+  },...extra
+});
+
+function mk(id,type,data,opts){
+  const el=document.getElementById(id);
+  if(!el)return;
+  new Chart(el,{type,data,options:opts||scaleOpts()});
+}
+
+function showTab(name,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+
+window.addEventListener('load',()=>{
+  // Match table
+  const tb=document.getElementById('matchTableBody');
+  matches.forEach((m,i)=>{
+    const r=m.bg>m.og?'W':m.bg===m.og?'D':'L';
+    const bc=r==='W'?'bw':r==='D'?'bd':'bl';
+    tb.innerHTML+=`<tr><td style="color:var(--muted)">${i+1}</td><td style="font-family:'DM Sans';color:var(--text)">${m.opp}</td><td style="font-weight:700">${m.bg}–${m.og}</td><td><span class="badge ${bc}">${r}</span></td><td>${m.bs}/${m.os}</td><td>${m.bxg}/${m.oxg}</td><td>${m.poss}%</td><td>${m.pass}%</td></tr>`;
+  });
+
+  // Overview: Goals vs xG
+  mk('goalsXgChart','bar',{labels:oppShort,datasets:[
+    {label:'Goals',data:matches.map(m=>m.bg),backgroundColor:'rgba(165,0,68,0.75)',borderRadius:3},
+    {label:'xG',data:matches.map(m=>m.bxg),type:'line',borderColor:'#EDBB4A',pointBackgroundColor:'#EDBB4A',tension:0.4,fill:false,pointRadius:3,borderWidth:2}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:45},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Overview: Shots
+  mk('shotsChart','bar',{labels:oppShort,datasets:[
+    {label:'Barcelona',data:matches.map(m=>m.bs),backgroundColor:'rgba(0,77,152,0.8)',borderRadius:3},
+    {label:'Opponent',data:matches.map(m=>m.os),backgroundColor:'rgba(165,0,68,0.5)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:45},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Overview: Possession
+  mk('possChart','line',{labels:oppShort,datasets:[
+    {label:'Possession %',data:matches.map(m=>m.poss),borderColor:'#A50044',backgroundColor:'rgba(165,0,68,0.08)',fill:true,tension:0.4,pointBackgroundColor:'#FF5A8A',pointRadius:3,borderWidth:2}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:45},grid:{color:'rgba(255,255,255,0.035)'}},y:{min:45,max:85,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Overview: Pressing
+  mk('pressChart','bar',{labels:oppShort,datasets:[
+    {label:'Pressures',data:matches.map(m=>m.press),backgroundColor:matches.map(m=>m.press>180?'rgba(155,114,255,0.85)':'rgba(155,114,255,0.4)'),borderRadius:3}
+  ]},scaleOpts({plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:45},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Matches: xG vs Goals
+  mk('xgGoalsChart','bar',{labels:nums,datasets:[
+    {label:'xG',data:matches.map(m=>m.bxg),backgroundColor:'rgba(90,173,255,0.7)',borderRadius:3},
+    {label:'Actual Goals',data:matches.map(m=>m.bg),backgroundColor:'rgba(237,187,74,0.85)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Matches: Efficiency
+  mk('effChart','line',{labels:nums,datasets:[
+    {label:'Goal/Shot %',data:matches.map(m=>m.bs>0?+(m.bg/m.bs*100).toFixed(1):0),borderColor:'#FF5A8A',backgroundColor:'rgba(165,0,68,0.07)',fill:true,tension:0.4,pointBackgroundColor:'#FF5A8A',pointRadius:4,borderWidth:2}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Matches: Pass
+  mk('passChart','bar',{labels:nums,datasets:[
+    {label:'Pass Acc %',data:matches.map(m=>m.pass),backgroundColor:matches.map(m=>m.pass>88?'rgba(0,201,167,0.85)':'rgba(0,201,167,0.4)'),borderRadius:3}
+  ]},scaleOpts({plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{min:78,max:93,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Matches: xG conceded
+  mk('xgConcChart','bar',{labels:nums,datasets:[
+    {label:'Opp xG',data:matches.map(m=>m.oxg),backgroundColor:matches.map(m=>m.oxg>2?'rgba(255,107,53,0.85)':m.oxg>1?'rgba(237,187,74,0.7)':'rgba(0,77,152,0.6)'),borderRadius:3}
+  ]},scaleOpts({plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Players: xG vs Goals
+  mk('playerXgChart','bar',{labels:players.map(p=>p.name),datasets:[
+    {label:'xG',data:players.map(p=>p.xg),backgroundColor:'rgba(0,77,152,0.7)',borderRadius:3},
+    {label:'Goals',data:players.map(p=>p.goals),backgroundColor:'rgba(237,187,74,0.85)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Players: Creative
+  mk('playerCreativeChart','bar',{labels:players.map(p=>p.name),datasets:[
+    {label:'Key Passes',data:players.map(p=>p.kp),backgroundColor:'rgba(155,114,255,0.75)',borderRadius:3},
+    {label:'Shots',data:players.map(p=>p.shots),backgroundColor:'rgba(0,201,167,0.5)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Players: shot bars
+  const be=document.getElementById('shotBars');
+  players.forEach(p=>{
+    be.innerHTML+=`<div class="br"><div class="brl"><span>${p.name}</span><span>${p.shots} shots · ${p.xg} xG</span></div><div class="brt"><div class="brf" style="width:${p.shots/104*100}%;background:linear-gradient(90deg,#004D98,#EDBB4A)"></div></div></div>`;
+  });
+
+  // Shot map
+  const dg=document.getElementById('shot-dots');
+  shotData.forEach(([x,y,xg,outcome])=>{
+    const sx=80+(x/120)*600, sy=20+(y/80)*400, r=3.5+xg*13;
+    const fill=outcome==='Goal'?'rgba(0,201,167,0.85)':'rgba(237,187,74,0.4)';
+    const stroke=outcome==='Goal'?'#00C9A7':'rgba(237,187,74,0.5)';
+    const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',sx.toFixed(1));c.setAttribute('cy',sy.toFixed(1));
+    c.setAttribute('r',r.toFixed(1));c.setAttribute('fill',fill);
+    c.setAttribute('stroke',stroke);c.setAttribute('stroke-width','1');
+    dg.appendChild(c);
+  });
+
+  // Shot outcome
+  mk('outcomeChart','doughnut',{
+    labels:['Goal','Saved','Blocked','Off Target','Wayward','Post'],
+    datasets:[{data:[55,140,90,100,20,18],backgroundColor:['rgba(0,201,167,0.85)','rgba(0,77,152,0.7)','rgba(165,0,68,0.7)','rgba(237,187,74,0.7)','rgba(107,107,128,0.5)','rgba(255,107,53,0.7)'],borderWidth:0,hoverOffset:6}]
+  },{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{position:'right',labels:{color:'#555',font:{family:'DM Sans',size:10},boxWidth:10,padding:6}}}});
+
+  // Body part
+  mk('bodyChart','doughnut',{
+    labels:['Left Foot','Right Foot','Head'],
+    datasets:[{data:[147,134,35],backgroundColor:['rgba(0,77,152,0.85)','rgba(155,114,255,0.85)','rgba(237,187,74,0.85)'],borderWidth:0}]
+  },{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{position:'right',labels:{color:'#555',font:{family:'DM Sans',size:10},boxWidth:10,padding:6}}}});
+
+  // Play pattern
+  mk('patternChart','bar',{
+    labels:['Regular Play','Free Kick','Throw In','Corner','Counter','Goal Kick','Other'],
+    datasets:[{label:'Goals',data:[28,9,6,5,3,2,1],backgroundColor:['rgba(0,77,152,0.8)','rgba(237,187,74,0.8)','rgba(155,114,255,0.8)','rgba(0,201,167,0.8)','rgba(255,107,53,0.8)','rgba(165,0,68,0.8)','rgba(90,90,110,0.7)'],borderRadius:4}]
+  },scaleOpts({plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:25},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Timeline
+  mk('timelineChart','bar',{
+    labels:['0-10','10-20','20-30','30-40','40-50','50-60','60-70','70-80','80-90+'],
+    datasets:[{label:'Shots',data:[18,32,38,35,28,31,37,42,55],backgroundColor:['rgba(0,77,152,0.45)','rgba(0,77,152,0.5)','rgba(0,77,152,0.55)','rgba(0,77,152,0.6)','rgba(0,77,152,0.55)','rgba(0,77,152,0.62)','rgba(0,77,152,0.7)','rgba(0,77,152,0.8)','rgba(0,77,152,0.95)'],borderRadius:4}]
+  },scaleOpts({plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // WC table
+  const wt=document.getElementById('wcTableBody');
+  wcMatches.forEach(m=>{
+    const xgW=m.t1xg>m.t2xg?m.t1:m.t2;
+    const actW=m.t1g>m.t2g?m.t1:m.t1g===m.t2g?'Draw':m.t2;
+    const correct=xgW===actW;
+    wt.innerHTML+=`<tr><td style="color:var(--muted)">Knockout</td><td style="font-family:'DM Sans'">${m.t1}</td><td style="font-family:'DM Sans'">${m.t2}</td><td style="font-weight:700">${m.score}</td><td>${m.t1s}</td><td>${m.t2s}</td><td style="color:var(--gold)">${m.t1xg}</td><td style="color:var(--gold)">${m.t2xg}</td><td><span class="badge ${correct?'bw':'bl'}">${xgW} ${correct?'✓':'✗'}</span></td></tr>`;
+  });
+
+  // WC Shots
+  mk('wcShotsChart','bar',{labels:wcMatches.map(m=>m.t1.substring(0,4)+' v '+m.t2.substring(0,4)),datasets:[
+    {label:'Team 1',data:wcMatches.map(m=>m.t1s),backgroundColor:'rgba(0,77,152,0.8)',borderRadius:3},
+    {label:'Team 2',data:wcMatches.map(m=>m.t2s),backgroundColor:'rgba(165,0,68,0.6)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // WC xG
+  mk('wcXgChart','bar',{labels:wcMatches.map(m=>m.t1.substring(0,4)+' v '+m.t2.substring(0,4)),datasets:[
+    {label:'Team 1 xG',data:wcMatches.map(m=>m.t1xg),backgroundColor:'rgba(237,187,74,0.8)',borderRadius:3},
+    {label:'Team 2 xG',data:wcMatches.map(m=>m.t2xg),backgroundColor:'rgba(255,107,53,0.6)',borderRadius:3}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // WC Pred
+  mk('wcPredChart','bar',{labels:wcMatches.map(m=>m.t1+' vs '+m.t2),datasets:[
+    {label:'T1 xG',data:wcMatches.map(m=>m.t1xg),backgroundColor:'rgba(0,77,152,0.7)',borderRadius:3},
+    {label:'T2 xG',data:wcMatches.map(m=>m.t2xg),backgroundColor:'rgba(155,114,255,0.7)',borderRadius:3},
+    {label:'T1 Goals',data:wcMatches.map(m=>m.t1g),type:'line',borderColor:'#EDBB4A',pointBackgroundColor:'#EDBB4A',tension:0.2,fill:false,pointRadius:5,borderWidth:2},
+    {label:'T2 Goals',data:wcMatches.map(m=>m.t2g),type:'line',borderColor:'#FF5A8A',pointBackgroundColor:'#FF5A8A',tension:0.2,fill:false,pointRadius:5,borderWidth:2}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9},maxRotation:15},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Insights: trend
+  mk('trendChart','line',{labels:nums,datasets:[
+    {label:'Barcelona xG',data:matches.map(m=>m.bxg),borderColor:'#5AADFF',backgroundColor:'rgba(90,173,255,0.07)',fill:true,tension:0.4,pointBackgroundColor:'#5AADFF',pointRadius:3,borderWidth:2},
+    {label:'Opponent xG',data:matches.map(m=>m.oxg),borderColor:'#FF5A8A',backgroundColor:'rgba(255,90,138,0.04)',fill:true,tension:0.4,pointBackgroundColor:'#FF5A8A',pointRadius:3,borderWidth:2}
+  ]},scaleOpts({scales:{x:{ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:10}},grid:{color:'rgba(255,255,255,0.035)'}},y:{beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}}}));
+
+  // Insights: polar goal pattern
+  mk('insightPatternChart','polarArea',{
+    labels:['Regular Play','Free Kick','Throw In','Corner','Counter','Goal Kick','Other'],
+    datasets:[{data:[28,9,6,5,3,2,1],backgroundColor:['rgba(0,77,152,0.7)','rgba(237,187,74,0.7)','rgba(155,114,255,0.7)','rgba(0,201,167,0.7)','rgba(255,107,53,0.7)','rgba(165,0,68,0.7)','rgba(90,90,110,0.6)'],borderWidth:0}]
+  },{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{position:'right',labels:{color:'#555',font:{family:'DM Sans',size:10},boxWidth:10,padding:6}}},scales:{r:{ticks:{color:'#333',backdropColor:'transparent',font:{size:8}},grid:{color:'rgba(255,255,255,0.05)'}}}});
+
+  // Insights: scatter press vs goals
+  mk('pressGoalsChart','scatter',{datasets:[{
+    label:'Match',data:matches.map((m,i)=>({x:m.press,y:m.bg,label:m.opp})),
+    backgroundColor:'rgba(155,114,255,0.7)',pointRadius:7,pointHoverRadius:9
+  }]},{
+    responsive:true,maintainAspectRatio:false,animation:{duration:500},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`${matches[ctx.dataIndex].opp}: ${ctx.parsed.y} goals · ${ctx.parsed.x} presses`}}},
+    scales:{
+      x:{title:{display:true,text:'Pressures Applied',color:'#555',font:{family:'DM Mono',size:9}},ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}},
+      y:{title:{display:true,text:'Goals Scored',color:'#555',font:{family:'DM Mono',size:9}},beginAtZero:true,ticks:{color:'#4A4A5A',font:{family:'DM Mono',size:9}},grid:{color:'rgba(255,255,255,0.035)'}}
+    }
+  });
+});
+</script>
+</body>
+</html>
