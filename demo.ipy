@@ -1,0 +1,184 @@
+import json
+import pandas as pd
+import sys
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Configure UTF-8 encoding for console output
+sys.stdout.reconfigure(encoding='utf-8')
+
+# Load JSON file
+with open('9736.json', 'r', encoding='utf-8') as f:
+    data = json.load(f)
+
+# Convert to DataFrame
+df = pd.json_normalize(data)
+
+# 1. Select Important Columns
+
+columns_needed = [
+    'id', 'index', 'period', 'minute', 'second',
+    'type.name', 'team.name', 'player.name',
+    'position.name', 'location', 'duration'
+]
+
+df = df[columns_needed]
+
+# 2. Rename Columns
+
+df.columns = [
+    'id', 'index', 'period', 'minute', 'second',
+    'event_type', 'team', 'player',
+    'position', 'location', 'duration'
+]
+# 3. Handle Missing Values
+
+df['player'] = df['player'].fillna('Unknown')
+df['position'] = df['position'].fillna('Unknown')
+df['duration'] = df['duration'].fillna(0)
+
+# 4. Split Location into X, Y
+
+df['x'] = df['location'].apply(lambda x: x[0] if isinstance(x, list) else None)
+df['y'] = df['location'].apply(lambda x: x[1] if isinstance(x, list) else None)
+
+# Drop original location column
+df = df.drop(columns=['location'])
+
+
+# 5. Create Time Column
+
+df['total_seconds'] = df['minute'] * 60 + df['second']
+
+
+# 6. Filter Useful Events (Optional)
+
+# Example: Keep only passes
+passes_df = df[df['event_type'] == 'Pass']
+
+
+# 7. Remove Duplicates
+df = df.drop_duplicates()
+print(df.info())
+
+# 2. Correlation Heatmap
+# -----------------------------
+plt.figure()
+numeric_df = df.select_dtypes(include=['int64', 'float64'])
+corr = numeric_df.corr()
+
+sns.heatmap(corr, annot=True)
+plt.title("Correlation Heatmap")
+plt.show()
+
+# -----------------------------
+# 3. Histograms (Check Skewness)
+# -----------------------------
+numeric_df.hist(bins=30)
+plt.suptitle("Histograms for Skewness")
+plt.show()
+
+# -----------------------------
+# 4. Boxplots (Check Outliers)
+# -----------------------------
+# Select numeric columns
+numeric_df = df[['minute', 'second', 'duration', 'x', 'y']]
+
+# Create subplots (1 row, 5 columns)
+plt.figure(figsize=(12, 8))
+
+for i, col in enumerate(numeric_df.columns):
+    plt.subplot(2, 3, i+1)
+    
+    # Horizontal boxplot (rotated view)
+    sns.boxplot(x=numeric_df[col])
+    
+    # Rotate title
+    plt.title(col, rotation=90)
+    
+    # Rotate x-axis labels
+    plt.xticks(rotation=90)
+
+plt.suptitle("Boxplots for Outlier Detection")
+plt.tight_layout()
+plt.show()
+
+
+
+# hypothesis testing 
+
+from scipy.stats import ttest_ind
+
+# Filter teams
+barca = df[df['team'] == 'Barcelona']['duration'].dropna()
+madrid = df[df['team'] == 'Real Madrid']['duration'].dropna()
+
+# Perform T-test
+t_stat, p_value = ttest_ind(barca, madrid)
+
+print("T-statistic:", t_stat)
+print("P-value:", p_value)
+
+# Decision
+alpha = 0.05
+
+if p_value < alpha:
+    print("Reject Null Hypothesis (Significant difference)")
+else:
+    print("Fail to Reject Null Hypothesis (No significant difference)")
+
+
+# -----------------------------
+# LINEAR REGRESSION MODEL
+# -----------------------------
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, mean_squared_error
+
+# 🔹 Create Target Variable (Goal Event)
+df['is_goal'] = df['event_type'].apply(lambda x: 1 if x == 'Shot' else 0)
+
+# 🔹 Feature Selection
+features = ['x', 'y', 'minute', 'second', 'duration']
+df_model = df[features + ['is_goal']].dropna()
+
+X = df_model[features]
+y = df_model['is_goal']
+
+# 🔹 Train-Test Split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 🔹 Train Model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# 🔹 Predictions
+y_pred = model.predict(X_test)
+
+# -----------------------------
+# MODEL EVALUATION
+# -----------------------------
+print("\n📊 MODEL PERFORMANCE")
+print("R² Score:", r2_score(y_test, y_pred))
+print("MSE:", mean_squared_error(y_test, y_pred))
+
+# -----------------------------
+# COEFFICIENTS (IMPORTANT)
+# -----------------------------
+coeff_df = pd.DataFrame({
+    'Feature': features,
+    'Coefficient': model.coef_
+})
+
+print("\n📈 FEATURE IMPORTANCE:")
+print(coeff_df)
+
+# -----------------------------
+# VISUALIZATION: Actual vs Predicted
+# -----------------------------
+plt.figure()
+plt.scatter(y_test, y_pred)
+plt.xlabel("Actual")
+plt.ylabel("Predicted")
+plt.title("Actual vs Predicted Goals")
+plt.show()
